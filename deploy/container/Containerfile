@@ -1,5 +1,14 @@
 FROM alpine:latest
 
-RUN apk --no-cache add bash curl
+RUN apk --no-cache add \
+  bash \
+  curl \
+  gnupg
+
+# Copy the GPG public key to the image
+COPY /src/public.key /root/public.key
+
+# Import the GPG public key
+RUN gpg --import /root/public.key
 
 CMD ["/bin/bash"]
