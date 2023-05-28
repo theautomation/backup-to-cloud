@@ -5,10 +5,16 @@ RUN apk --no-cache add \
   curl \
   gnupg
 
-# Copy the GPG public key to the image
-COPY /src/public.key /root/public.key
+# Create the /app directory
+RUN mkdir /app
+
+# Set the working directory to /app
+WORKDIR /app
+
+# Copy the contents of the local /src folder to the current working directory (/app) in the container
+COPY /src .
 
 # Import the GPG public key
-RUN gpg --import /root/public.key
+RUN gpg --import /app/public.key
 
 CMD ["/bin/bash"]
