@@ -1,6 +1,7 @@
 FROM alpine:latest
 
-ARG gpg_pub_key_filename=backup-to-cloud_publickey.key
+ARG GPG_PUBLICKEY=backup-to-cloud_publickey.asc
+ARG APP_LOCATION=/app
 
 RUN apk --no-cache add \
   bash \
@@ -8,15 +9,15 @@ RUN apk --no-cache add \
   gnupg
 
 # Create the /app directory
-RUN mkdir /app
+RUN mkdir $APP_LOCATION
 
-# Set the working directory to /app
-WORKDIR /app
+# Set the working directory to $APP_LOCATION
+WORKDIR $APP_LOCATION
 
-# Copy the contents of the local /src folder to the current working directory (/app) in the container
+# Copy the contents of the local /src folder to the current working directory ($APP_LOCATION) in the container
 COPY /src .
 
 # Import the GPG public key
-RUN gpg --import /app/$gpg_pub_key_filename
+RUN gpg --import $APP_LOCATION/$GPG_PUBLICKEY
 
 CMD ["/bin/bash"]
