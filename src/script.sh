@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# this script will tarball and backup files and folders from local machine to a remote machine over ssh.
+# This script will tarball each directory in the given backup folder location, encrypt each tar file with GPG using my own public key and upload those encrypted files to my Dropbox in the cloud.
 #
 # script writtin by Coen Stam.
 # github@theautomation.nl
