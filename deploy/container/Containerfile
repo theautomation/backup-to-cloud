@@ -1,5 +1,7 @@
 FROM alpine:latest
 
+ARG gpg_pub_key_filename=backup-to-cloud_publickey.key
+
 RUN apk --no-cache add \
   bash \
   curl \
@@ -15,6 +17,6 @@ WORKDIR /app
 COPY /src .
 
 # Import the GPG public key
-RUN gpg --import /app/public.key
+RUN gpg --import /app/$gpg_pub_key_filename
 
 CMD ["/bin/bash"]
