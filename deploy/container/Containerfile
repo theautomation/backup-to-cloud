@@ -18,4 +18,7 @@ WORKDIR $APP_LOCATION
 # Copy the contents to the current working directory
 COPY /src .
 
+# Set ownership
+RUN chown -R 1000:2000 $APP_LOCATION
+
 CMD ["/bin/bash"]
