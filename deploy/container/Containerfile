@@ -19,9 +19,12 @@ WORKDIR $APP_LOCATION
 # Copy the contents of the local /src folder to the current working directory ($APP_LOCATION) in the container
 COPY /src .
 
-USER 1000
+# Set permissions on the key file
+RUN chown -R 1000:2000 $APP_LOCATION
 
-# Import the GPG public key
-RUN gpg --import $APP_LOCATION/$GPG_PUBLICKEY
+# # Import the GPG public key
+# RUN gpg --import $APP_LOCATION/$GPG_PUBLICKEY
+
+RUN gosu 1000 gpg --import $APP_LOCATION/$GPG_PUBLICKEY
 
 CMD ["/bin/bash"]
