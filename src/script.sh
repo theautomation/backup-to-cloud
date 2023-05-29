@@ -57,11 +57,11 @@ for directory in "$BACKUP_DIRECTORY"/*; do
         tar_output_path="${BACKUP_DIRECTORY}/${tar_filename}"
 
         # Create the tar file for the directory
-        tar -czf "$tar_output_path" -C "$directory" .
+        tar -czf "$tar_output_path" -C "$directory"
 
         log "Created tar file: $tar_filename"
 
-        # Remove the contents of the directory
+        # Remove the contents from the directory
         rm -r "${directory:?}/"*
     else
         log "Skip tarball for \"$directory\", because there where no files found"
