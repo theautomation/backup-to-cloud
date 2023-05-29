@@ -1,0 +1,135 @@
+---
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: pv-nfs-coen-backups
+  labels:
+    app.kubernetes.io/name: backup-to-cloud
+    app.kubernetes.io/component: cronjob
+    app.kubernetes.io/instance: production
+    app.kubernetes.io/part-of: backup-to-cloud
+spec:
+  storageClassName: "freenas-nfs-manual-csi"
+  capacity:
+    storage: 30Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  mountOptions:
+    - nfsvers=4
+    - nolock
+    - noatime
+  csi:
+    driver: org.democratic-csi.node-manual
+    readOnly: false
+    fsType: nfs
+    volumeHandle: pv-nfs-coen-backups
+    volumeAttributes:
+      server: storage-server-lagg.lan
+      share: /mnt/r10_8tb/coen/backups-test
+      node_attach_driver: nfs
+      provisioner_driver: node-manual
+
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: pvc-nfs-coen-backups
+  namespace: tools
+  labels:
+    app.kubernetes.io/name: backup-to-cloud
+    app.kubernetes.io/component: cronjob
+    app.kubernetes.io/instance: production
+    app.kubernetes.io/part-of: backup-to-cloud
+  annotations:
+    volume.beta.kubernetes.io/storage-class: "freenas-nfs-manual-csi"
+spec:
+  storageClassName: freenas-nfs-manual-csi
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 30Gi
+  volumeName: pv-nfs-coen-backups
+
+---
+kind: SealedSecret
+apiVersion: bitnami.com/v1alpha1
+metadata:
+  name: backup-to-cloud-secret-env
+  namespace: tools
+spec:
+  encryptedData:
+    DROPBOX_ACCESS_TOKEN: AgCHzQAA4OWzg8Eeoawx+bJMjfBwfQru0tx8o/tfY6VbEZbd8YwZoO3EFGNswsb/A2LRo4qkDnRycOMFa3/gBsrCs0hPgc9cE1Z03pWL5YZZ6uJ+Uyo/ih5935te9nye8BnJp0ZZS6qyulkE/wUUWnzpV+nwcbGZ/0dGruo7Hxj7mfa/zfq+pgpMrx9f9iGXDrIrK2bboTpWUiZxF4mYXZnE0ZCFHLNgvOZ6J5EVpQzc0dUvKGaAr5+rKKZjnsUt5XxM3aIT29TP5L2NOT6PUnY99xzX0Iw8dwOZGLbkxFMkLWY+tkxvNm6gL5lfVWX0qO4j19iSmnjtKcLEMW8kqXBrPfd9BJTK7zsG1kBoLlQn+gU9r0NHmDqyJvTc6+iqskmOjR816nftT6ycAN1KNrLhXj1tpZY8OBE14tNoQOeKXdljoGcWR6DgvoLH2n2HfhfDmisWBmX6j+EIarG4fkwHtcdUmLxspP5S3mEptCfAie7DD2j8xo6qemu0D8DXmBWH40+k5F/OQv7TS9PmkVq5hok7lWW49LkIbvNSokZQ6K0xeb5uNAq5/JdDulI0pbsqGBO6qdBXhKnMjbfsMWPN20YobTlnHKiO/QlQTZkMlrHQAtXmUav2xjSHsRAZpuwpMVgc8jOTP11Dwheq9rmaAAMdSMVVw82N20AXSLiBWewD7MrCtg1MYD0R3wTfp33jxQ6IYirJkLdiOxH5ihwDJIxtkccipU77EtQkW2B3JIn7HWaa5Urp1XCPwTKKWgQazHi2SPBWJLbbw1vrG7ZYs9vkTo32yM7r1MVfzgbChdaKUZHOziXLSazLHDjFhib9jbR0U8An6v6VZBHwev487R+0YVVXnzJqzdz9s08HiJ2yJ7BkFutQFGe8Sr8U
+  template:
+    type: Opaque
+    metadata:
+      name: backup-to-cloud-secret-env
+      namespace: tools
+      labels:
+        app.kubernetes.io/component: cronjob
+        app.kubernetes.io/instance: production
+        app.kubernetes.io/name: backup-to-cloud
+        app.kubernetes.io/part-of: backup-to-cloud
+
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: backup-to-cloud-env
+  namespace: tools
+  labels:
+    app.kubernetes.io/name: backup-to-cloud
+    app.kubernetes.io/component: cronjob
+    app.kubernetes.io/instance: production
+    app.kubernetes.io/part-of: backup-to-cloud
+data:
+  TZ: "Europe/Amsterdam"
+  BACKUP_DIRECTORY: "/backups"
+  GPG_RECIPIENT: "gpg@theautomation.nl"
+  DROPBOX_REMOTE_LOCATION: "/backup-to-cloud"
+  DEBUG: "false"
+  LOG_FILE_LOCATION: ""
+
+---
+kind: Job
+apiVersion: batch/v1
+metadata:
+  name: backup-to-cloud
+  namespace: tools
+  labels:
+    app.kubernetes.io/name: backup-to-cloud
+    app.kubernetes.io/component: cronjob
+    app.kubernetes.io/instance: production
+    app.kubernetes.io/part-of: backup-to-cloud
+spec:
+  template:
+    spec:
+      securityContext:
+        fsGroup: 2000
+      containers:
+        - name: backup-to-cloud
+          image: "harbor.k8s.lan/k8s/backup-to-cloud:latest"
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 2000
+          imagePullPolicy: Always
+          command:
+            - "./app/script.sh"
+          volumeMounts:
+            - name: backups
+              mountPath: /backups
+          envFrom:
+            - configMapRef:
+                name: backup-to-cloud-env
+                optional: false
+            - secretRef:
+                name: backup-to-cloud-secret-env
+                optional: false
+      restartPolicy: OnFailure
+      imagePullSecrets:
+        - name: harbor-registry-creds
+      volumes:
+        - name: backups
+          persistentVolumeClaim:
+            claimName: pvc-nfs-coen-backups
