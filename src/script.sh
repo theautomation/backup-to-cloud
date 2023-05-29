@@ -39,6 +39,9 @@ log() {
 # Create output directory if it doesn't exist
 mkdir -p "$BACKUP_DIRECTORY"
 
+# Import GPG puclic key
+gpg --import ./backup-to-cloud_publickey.asc
+
 # Loop through each subdirectory in the backup directory
 for directory in "$BACKUP_DIRECTORY"/*; do
 

@@ -1,7 +1,6 @@
 FROM alpine:latest
 
 # Arguments
-ARG GPG_PUBLICKEY=backup-to-cloud_publickey.asc
 ARG APP_LOCATION=/app
 
 # Install packages
@@ -16,15 +15,7 @@ RUN mkdir $APP_LOCATION
 # Set the working directory to $APP_LOCATION
 WORKDIR $APP_LOCATION
 
-# Copy the contents of the local /src folder to the current working directory ($APP_LOCATION) in the container
+# Copy the contents to the current working directory
 COPY /src .
-
-# Set permissions on the key file
-RUN chown -R 1000:2000 $APP_LOCATION
-
-# # Import the GPG public key
-# RUN gpg --import $APP_LOCATION/$GPG_PUBLICKEY
-
-RUN su-exec 1000 gpg --import $APP_LOCATION/$GPG_PUBLICKEY
 
 CMD ["/bin/bash"]
