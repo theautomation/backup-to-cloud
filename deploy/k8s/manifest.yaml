@@ -107,7 +107,7 @@ spec:
     spec:
       containers:
         - name: backup-to-cloud
-          image: "harbor.k8s.lan/k8s/backup-to-cloud:6"
+          image: "harbor.k8s.lan/k8s/backup-to-cloud:7"
           securityContext:
             runAsUser: 1000
             runAsGroup: 2000
