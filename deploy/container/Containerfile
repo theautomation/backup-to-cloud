@@ -19,8 +19,7 @@ WORKDIR $APP_LOCATION
 # Copy the contents of the local /src folder to the current working directory ($APP_LOCATION) in the container
 COPY /src .
 
-# Change ownership of the app files
-RUN chown -R 1000:2000 $APP_LOCATION
+USER 1000
 
 # Import the GPG public key
 RUN gpg --import $APP_LOCATION/$GPG_PUBLICKEY
