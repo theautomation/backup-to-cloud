@@ -10,12 +10,6 @@ RUN apk --no-cache add \
   curl \
   gnupg
 
-# # Set user
-# USER 1000
-
-# Create the .gnupg directory with correct permissions
-RUN mkdir -m 700 ~/.gnupg
-
 # Create the /app directory
 RUN mkdir $APP_LOCATION
 
@@ -24,6 +18,9 @@ WORKDIR $APP_LOCATION
 
 # Copy the contents of the local /src folder to the current working directory ($APP_LOCATION) in the container
 COPY /src .
+
+# Change ownership of the app files
+RUN chown -R 1000:2000 $APP_LOCATION
 
 # Import the GPG public key
 RUN gpg --import $APP_LOCATION/$GPG_PUBLICKEY

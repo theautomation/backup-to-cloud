@@ -105,14 +105,13 @@ metadata:
 spec:
   template:
     spec:
-      # securityContext:
-      #   fsGroup: 2000
       containers:
         - name: backup-to-cloud
           image: "harbor.k8s.lan/k8s/backup-to-cloud:6"
           securityContext:
             runAsUser: 1000
             runAsGroup: 2000
+            fsGroup: 2000
           imagePullPolicy: Always
           # command:
           #   - "/app/script.sh"
