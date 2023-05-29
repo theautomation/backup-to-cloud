@@ -1,8 +1,5 @@
 FROM alpine:latest
 
-# Set user
-USER 1000
-
 # Arguments
 ARG GPG_PUBLICKEY=backup-to-cloud_publickey.asc
 ARG APP_LOCATION=/app
@@ -12,6 +9,9 @@ RUN apk --no-cache add \
   bash \
   curl \
   gnupg
+
+# Set user
+USER 1000
 
 # Create the .gnupg directory with correct permissions
 RUN mkdir -m 700 ~/.gnupg
