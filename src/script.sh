@@ -6,24 +6,30 @@
 # github@theautomation.nl
 #
 
-# should be from ENV
-backup_directory="/home/coen/storage-server/coen/backups-test"
-gpg_recipient="gpg@theautomation.nl"
-debug=false
-dropbox_remote_location=/backup-to-cloud
-DROPBOX_ACCESS_TOKEN=""
+# Optional ENV variables with a default value
+DEBUG=${DEBUG:-false}
+LOG_FILE_LOCATION=${LOG_FILE_LOCATION:-"./backup-to-cloud.log"}
 
-# Dropbox script
-dropbox_uploader="/home/coen/github/backup-to-cloud/src/dropbox_uploader.sh"
+# Array of specific required environment variables to check
+variables=("BACKUP_DIRECTORY" "GPG_RECIPIENT" "DROPBOX_REMOTE_LOCATION" "DROPBOX_ACCESS_TOKEN")
 
-log_file="./backup-to-cloud.log"
+# Loop through specific required variables
+for var_name in "${variables[@]}"; do
+    # Get the value of the variable
+    var_value="${!var_name}"
 
-if [ "$debug" = true ]; then
+    # Check if the value is empty or not
+    if [[ -z "$var_value" ]]; then
+        echo "ERROR: The '$var_name' environment variable is empty."
+        exit 1
+    fi
+done
+
+if [ "$DEBUG" = true ]; then
     set -x
+    # Redirect standard output to both the log file and stdout
+    exec > >(tee -a "$LOG_FILE_LOCATION") 2>&1
 fi
-
-# Redirect standard output to both the log file and stdout
-exec > >(tee -a "$log_file") 2>&1
 
 # Function to add timestamp to log messages
 log() {
@@ -31,13 +37,13 @@ log() {
 }
 
 # Create output directory if it doesn't exist
-mkdir -p "$backup_directory"
+mkdir -p "$BACKUP_DIRECTORY"
 
-# Loop through each subdirectory in the parent directory
-for directory in "$backup_directory"/*; do
+# Loop through each subdirectory in the backup directory
+for directory in "$BACKUP_DIRECTORY"/*; do
 
     if [[ $directory == *.tar.gz ]]; then
-        continue  # Skip existing tar.gz files
+        continue # Skip existing tar.gz files
     fi
 
     if [ -d "$directory" ] && [ -n "$(find "$directory" -mindepth 1 -type f)" ]; then
@@ -48,7 +54,7 @@ for directory in "$backup_directory"/*; do
         # Create the output file name with the directory name and current date
         current_date=$(date +"%Y-%m-%d")
         tar_filename="${dir_name}_${current_date}.tar.gz"
-        tar_output_path="${backup_directory}/${tar_filename}"
+        tar_output_path="${BACKUP_DIRECTORY}/${tar_filename}"
 
         # Create the tar file for the directory
         tar -czf "$tar_output_path" -C "$directory" .
@@ -63,10 +69,10 @@ for directory in "$backup_directory"/*; do
 done
 
 # Loop through each tar.gz file in the output directory
-for file in "$backup_directory"/*"${current_date}.tar.gz"; do
+for file in "$BACKUP_DIRECTORY"/*"${current_date}.tar.gz"; do
     if [ -f "$file" ]; then
         # Encrypt the tar.gz file using gpg
-        gpg --batch --yes --recipient "$gpg_recipient" --output "$file.gpg" --encrypt "$file"
+        gpg --batch --yes --recipient "$GPG_RECIPIENT" --output "$file.gpg" --encrypt "$file"
 
         if [ $? -eq 0 ]; then
             log "Encryption successful. Encrypted file: $file.gpg"
@@ -78,12 +84,12 @@ for file in "$backup_directory"/*"${current_date}.tar.gz"; do
 done
 
 # Loop through each .gpg file in the directory
-for file in "$backup_directory"/*.gpg; do
+for file in "$BACKUP_DIRECTORY"/*.gpg; do
     if [ -f "$file" ]; then
         # Upload the file to Dropbox
         curl -X POST https://content.dropboxapi.com/2/files/upload \
             --header "Authorization: Bearer $DROPBOX_ACCESS_TOKEN" \
-            --header "Dropbox-API-Arg: {\"path\":\"$dropbox_remote_location/$(basename "$file")\",\"mode\":\"add\",\"autorename\":true,\"mute\":false}" \
+            --header "Dropbox-API-Arg: {\"path\":\"$DROPBOX_REMOTE_LOCATION/$(basename "$file")\",\"mode\":\"add\",\"autorename\":true,\"mute\":false}" \
             --header "Content-Type: application/octet-stream" \
             --data-binary @"$file"
 
