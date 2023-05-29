@@ -13,8 +13,8 @@ RUN apk --no-cache add \
 # Set user
 USER 1000
 
-# Create the .gnupg directory with correct permissions
-RUN mkdir -m 700 ~/.gnupg
+# # Create the .gnupg directory with correct permissions
+# RUN mkdir -m 700 ~/.gnupg
 
 # Create the /app directory
 RUN mkdir $APP_LOCATION
