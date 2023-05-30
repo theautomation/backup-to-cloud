@@ -39,8 +39,8 @@ log() {
 # Create output directory if it doesn't exist
 mkdir -p "$BACKUP_DIRECTORY"
 
-# # Import GPG puclic key
-# gpg --import ./backup-to-cloud_publickey.asc
+# Import GPG puclic key
+gpg --import ./backup-to-cloud_publickey.asc
 
 # Loop through each subdirectory in the backup directory
 for directory in "$BACKUP_DIRECTORY"/*; do
@@ -75,7 +75,7 @@ done
 for file in "$BACKUP_DIRECTORY"/*"${current_date}.tar.gz"; do
     if [ -f "$file" ]; then
         # Encrypt the tar.gz file using gpg
-        gpg --batch --yes --recipient "$GPG_RECIPIENT" --output "$file.gpg" --encrypt "$file"
+        gpg --trust-model always --batch --yes --recipient "$GPG_RECIPIENT" --output "$file.gpg" --encrypt "$file"
 
         if [ $? -eq 0 ]; then
             log "Encryption successful. Encrypted file: $file.gpg"
