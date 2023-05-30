@@ -9,9 +9,13 @@
 # Optional ENV variables with a default value
 DEBUG=${DEBUG:-false}
 LOG_FILE_LOCATION=${LOG_FILE_LOCATION:-"./backup-to-cloud.log"}
+DROPBOX_REMOTE_LOCATION=${DROPBOX_REMOTE_LOCATION:-""}
 
 # Array of specific required environment variables to check
-variables=("BACKUP_DIRECTORY" "GPG_RECIPIENT" "DROPBOX_REMOTE_LOCATION" "DROPBOX_ACCESS_TOKEN")
+variables=("BACKUP_DIRECTORY" "GPG_RECIPIENT" "DROPBOX_ACCESS_TOKEN")
+
+# Date variable
+current_date=$(date +"%Y-%m-%d")
 
 # Loop through specific required variables
 for var_name in "${variables[@]}"; do
@@ -72,16 +76,23 @@ for directory in "$BACKUP_DIRECTORY"/*; do
 done
 
 # Loop through each tar.gz file in the output directory
-for file in "$BACKUP_DIRECTORY"/"*.tar.gz"; do
-    if [[ $file == *"$current_date"* ]]; then
-        # Encrypt the tar.gz file using gpg
-        gpg --trust-model always --batch --yes --recipient "$GPG_RECIPIENT" --output "$file.gpg" --encrypt "$file"
+for file in "$BACKUP_DIRECTORY"/*.tar.gz; do
+    # Extract the filename without the directory path
+    filename=$(basename "$file")
 
-        if [ $? -eq 0 ]; then
-            log "Encryption successful. Encrypted file: $file.gpg"
-        else
-            log "Encryption failed for file: $file"
-            exit 1
+    # Check if the filename contains the current date
+    if [[ $filename == *"$current_date"* ]]; then
+        if [ -f "$file" ]; then
+
+            # Encrypt the tar.gz file using gpg
+            gpg --trust-model always --batch --yes --recipient "$GPG_RECIPIENT" --output "$file.gpg" --encrypt "$file"
+
+            if [ $? -eq 0 ]; then
+                log "Encryption successful. Encrypted file: $file.gpg"
+            else
+                log "Encryption failed for file: $file"
+                exit 1
+            fi
         fi
     fi
 done
