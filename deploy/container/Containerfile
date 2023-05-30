@@ -12,20 +12,17 @@ RUN apk --no-cache add \
   gnupg \
   shadow
 
-
-RUN adduser -D -u $UID $USERNAME
-
-RUN mkdir $APP_LOCATION
+RUN adduser -D -u $UID $USERNAME \
+  && mkdir $APP_LOCATION
 
 WORKDIR $APP_LOCATION
 
 COPY /src .
 
-RUN chown -R $UID:$GID $APP_LOCATION
+RUN chown -R $UID:$GID .
 
 USER $USERNAME
 
-# Import the GPG public key
-RUN gpg --import $APP_LOCATION/$GPG_PUBLICKEY
+RUN gpg --import ./$GPG_PUBLICKEY
 
 CMD ["/bin/bash"]
