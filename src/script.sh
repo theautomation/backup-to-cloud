@@ -72,8 +72,8 @@ for directory in "$BACKUP_DIRECTORY"/*; do
 done
 
 # Loop through each tar.gz file in the output directory
-for file in "$BACKUP_DIRECTORY"/*"${current_date}.tar.gz"; do
-    if [ -f "$file" ]; then
+for file in "$BACKUP_DIRECTORY"/"*.tar.gz"; do
+    if [[ $file == *"$current_date"* ]]; then
         # Encrypt the tar.gz file using gpg
         gpg --trust-model always --batch --yes --recipient "$GPG_RECIPIENT" --output "$file.gpg" --encrypt "$file"
 
