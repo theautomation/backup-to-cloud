@@ -87,7 +87,7 @@ data:
   TZ: "Europe/Amsterdam"
   BACKUP_DIRECTORY: "/backups"
   GPG_RECIPIENT: "gpg@theautomation.nl"
-  DROPBOX_REMOTE_LOCATION: "backup-to-cloud"
+  DROPBOX_REMOTE_LOCATION: ""
   DEBUG: "false"
   LOG_FILE_LOCATION: ""
 
@@ -116,8 +116,6 @@ spec:
           imagePullPolicy: Always
           command:
             - "/app/script.sh"
-          # command: ["sleep"]
-          # args: ["3600"]  # Sleep for 1 hour (3600 seconds)
           volumeMounts:
             - name: backups
               mountPath: /backups
