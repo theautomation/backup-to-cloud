@@ -8,7 +8,7 @@ RUN apk --no-cache add \
   bash \
   curl \
   gnupg \
-  adduser
+  shadow
 
 # ADd user
 RUN adduser -D -u 1000 backup-to-cloud
