@@ -13,16 +13,19 @@ import tarfile
 from datetime import date
 import gnupg
 import dropbox
+from typing import List
 
 # Define the variables
 LOG_FILE_LOCATION = os.getenv('LOG_FILE_LOCATION', './backup-to-cloud.log')
 BACKUP_DIRECTORY = os.getenv(
     'BACKUP_DIRECTORY', '/home/coen/storage-server/coen/backups-test')
 GPG_RECIPIENT = os.getenv('GPG_RECIPIENT', 'gpg@theautomation.nl')
-DROPBOX_REMOTE_LOCATION = os.getenv('DROPBOX_REMOTE_LOCATION')
-DROPBOX_CLIENT_ID = os.getenv('DROPBOX_CLIENT_ID', '')
-DROPBOX_CLIENT_SECRET = os.getenv('DROPBOX_CLIENT_SECRET', '')
-DROPBOX_REFRESH_TOKEN = os.getenv('DROPBOX_REFRESH_TOKEN', '')
+
+DROPBOX_UPLOAD = os.getenv('DROPBOX_UPLOAD', True)
+DROPBOX_REMOTE_LOCATION = os.getenv('DROPBOX_REMOTE_LOCATION', 'test')
+DROPBOX_CLIENT_ID = os.getenv('DROPBOX_CLIENT_ID', 'test')
+DROPBOX_CLIENT_SECRET = os.getenv('DROPBOX_CLIENT_SECRET', 'test')
+DROPBOX_REFRESH_TOKEN = os.getenv('DROPBOX_REFRESH_TOKEN', 'test')
 
 # Get the log level from the environment variable
 log_level_str = os.getenv('LOG_LEVEL', 'INFO')
@@ -45,7 +48,20 @@ logging.getLogger().addHandler(console_handler)
 
 def log_environment_variables(**variables):
     """
-    Logs the names and values of the specified variables using the logging module.
+    Logs the names and values of the specified variables, only when loglevel debug has been set, using the logging module.
+
+    :param variables: Keyword arguments representing the variables to be logged.
+    :return: None
+
+    The function iterates through the keyword arguments provided in the 'variables' parameter.
+    For each variable, it constructs a log message that includes the variable name and its corresponding value.
+    The log message is then logged at the debug level using the logging module.
+
+    Example usage:
+        log_environment_variables(API_KEY="xxxxxx", DATABASE_URL="postgres://user:password@localhost:5432/db")
+        This will log the names and values of the "API_KEY" and "DATABASE_URL" variables at the debug level.
+
+    Note: This function requires the 'logging' module to be imported.
     """
     log_message = "The following environment variables have been configured:\n"
     for name, value in variables.items():
@@ -55,7 +71,21 @@ def log_environment_variables(**variables):
 
 def check_directory_exists(directory: str):
     """
-    Checks if directory exists and SystemExit if the backup directory does not exist.
+    Checks if the specified directory exists and exits if it does not.
+
+    :param directory: The directory path to check.
+    :return: None
+
+    The function uses the 'os.path.exists' method to check if the specified directory exists.
+    If the directory does not exist, the function logs an error message and exits the program with a status code of 1.
+    If the directory exists, a debug-level log message is generated.
+
+    Example usage:
+        check_directory_exists("/path/to/backup")
+        This will check if the "/path/to/backup" directory exists.
+        If the directory does not exist, the function will log an error message and exit the program.
+
+    Note: This function requires the 'logging' and 'sys' modules to be imported.
     """
     if not os.path.exists(directory):
         logging.error("Backup directory '%s' does not exist", directory)
@@ -65,7 +95,21 @@ def check_directory_exists(directory: str):
 
 def check_required_env_variable(*required_variables):
     """
-    Check variables and if they have no value, exit.
+    Checks if the specified environment variables have a value and exits if any of them is missing.
+
+    :param required_variables: One or more environment variables to check.
+    :return: None
+
+    The function iterates through the provided required_variables.
+    For each variable, it checks if the variable has a value (i.e., not empty or None).
+    If any of the variables is empty or None, the function logs an error message and exits the program with a status code of 1.
+
+    Example usage:
+        check_required_env_variable("API_KEY", "DATABASE_URL")
+        This will check if the "API_KEY" and "DATABASE_URL" environment variables have a value.
+        If any of them is missing or empty, the function will log an error message and exit the program.
+
+    Note: This function requires the 'logging' and 'sys' modules to be imported.
     """
     for var in required_variables:
         if not var:
@@ -74,18 +118,32 @@ def check_required_env_variable(*required_variables):
             sys.exit(1)
 
 
-def dropbox_upload(file_path: str, dropbox_path: str, access_token: str):
-    dbx = dropbox.Dropbox(access_token)
-    try:
-        with open(file_path, "rb") as file:
-            logging.info("Uploading file to Dropbox...")
-            dbx.files_upload(file.read(), dropbox_path)
-            logging.info("File upload completed successfully.")
-    except dropbox.exceptions.DropboxException as e:
-        logging.error("Failed uploading file to Dropbox: %s", e)
-
-
 def dropbox_refresh_access_token(refresh_token, client_id, client_secret, redirect_uri):
+    """
+    Refreshes the access token for Dropbox API using the provided refresh token.
+
+    :param refresh_token: The refresh token associated with the Dropbox user.
+    :param client_id: The client ID of the Dropbox app.
+    :param client_secret: The client secret of the Dropbox app.
+    :param redirect_uri: The redirect URI used in the Dropbox app configuration.
+    :return: The new access token if it was successfully refreshed, or None if an error occurred.
+
+    The function creates a Dropbox OAuth2 flow object using the provided client ID, client secret,
+    and redirect URI. It then attempts to refresh the access token using the refresh token with the
+    'refresh_access_token' method of the flow object. If the refresh is successful, the function
+    retrieves the new access token and prints it. The new access token is then returned. If an
+    'AuthError' occurs during the refresh process, the error message is printed, and None is returned.
+
+    Note: This function requires the 'dropbox' module to be imported.
+
+    Example usage:
+        refresh_token = "xxxxxxxxxxxx"
+        client_id = "your_client_id"
+        client_secret = "your_client_secret"
+        redirect_uri = "https://your-redirect-uri.com"
+        new_access_token = dropbox_refresh_access_token(refresh_token, client_id, client_secret, redirect_uri)
+        The new access token, if refreshed successfully, will be returned, otherwise, None will be returned.
+    """
     auth_flow = dropbox.DropboxOAuth2Flow(
         client_id=client_id,
         client_secret=client_secret,
@@ -101,64 +159,138 @@ def dropbox_refresh_access_token(refresh_token, client_id, client_secret, redire
         return None
 
 
-def non_empty_directory_path(path: str) -> str:
+def dropbox_upload(file_path: str, dropbox_path: str, access_token: str):
     """
-    Return a (sub)directory inside the input directory that is not empty.
+    Uploads a file to Dropbox using the provided access token.
+
+    :param file_path: The path of the file to be uploaded.
+    :param dropbox_path: The path in Dropbox where the file will be uploaded.
+    :param access_token: The access token for authenticating with the Dropbox API.
+
+    The function creates a Dropbox object using the provided access token.
+    It then opens the specified file in binary mode and reads its content.
+    The content is then uploaded to the specified Dropbox path using the 'files_upload' method of the Dropbox object.
+    Logging messages are generated to indicate the progress and status of the upload process.
+
+    Note: This function requires the 'dropbox' module to be imported.
+
+    Example usage:
+        file_path = "/path/to/file.txt"
+        dropbox_path = "/destination/folder/file.txt"
+        access_token = "your_access_token"
+        dropbox_upload(file_path, dropbox_path, access_token)
+        This will upload the file at '/path/to/file.txt' to Dropbox at '/destination/folder/file.txt'.
     """
+    dbx = dropbox.Dropbox(access_token)
+    try:
+        with open(file_path, "rb") as file:
+            logging.info("Uploading file to Dropbox...")
+            dbx.files_upload(file.read(), dropbox_path)
+            logging.info("File upload completed successfully.")
+    except dropbox.exceptions.DropboxException as e:
+        logging.error("Failed uploading file to Dropbox: %s", e)
+
+
+def non_empty_directory_paths_list(path: str) -> List[str]:
+    """
+    Returns a list of non-empty directories found within the given path.
+
+    :param path: The path to search for non-empty directories.
+    :return: A list of non-empty directory paths found within the given path.
+
+    The function iterates through the items in the specified path using 'os.listdir'.
+    For each item, it creates a subpath by joining the item with the parent path using 'os.path.join'.
+    If the subpath is a directory and it contains at least one item, the function adds it to the result list.
+    The function returns the list of non-empty directory paths.
+
+    Example usage:
+        path = "/parent/directory/"
+        non_empty_dirs = non_empty_directory_paths(path)
+        # non_empty_dirs may contain ['/parent/directory/non_empty_subdirectory1', '/parent/directory/non_empty_subdirectory2', ...]
+
+    Note: This function requires the 'os' module to be imported.
+    """
+    non_empty_dirs = []
     for item in os.listdir(path):
         non_empty_subpath = os.path.join(path, item)
         if os.path.isdir(non_empty_subpath) and os.listdir(non_empty_subpath):
-            logging.info("Found non-empty directory: %s", non_empty_subpath)
-            return non_empty_subpath
+            non_empty_dirs.append(non_empty_subpath)
+    return non_empty_dirs
 
 
-def directory_name(path: str) -> str:
+def last_directory_name(path: str) -> str:
     """
-    Return the last directory name of the input path.
+    Returns the name of the last directory in the given path.
+
+    :param path: The path from which to extract the last directory name.
+    :return: The name of the last directory in the path.
+
+    Example usage:
+        path = "/path/to/directory/"
+        directory_name = last_directory_name(path)
+        directory_name will be "directory"
+
+    Note: This function requires the 'os' module to be imported.
     """
     directory_name = os.path.basename(path)
     return directory_name
 
 
-log_environment_variables(
-    LOG_FILE_LOCATION=LOG_FILE_LOCATION,
-    BACKUP_DIRECTORY=BACKUP_DIRECTORY,
-    GPG_RECIPIENT=GPG_RECIPIENT,
-    DROPBOX_REMOTE_LOCATION=DROPBOX_REMOTE_LOCATION,
-    DROPBOX_CLIENT_ID=DROPBOX_CLIENT_ID,
-    DROPBOX_CLIENT_SECRET=DROPBOX_CLIENT_SECRET,
-    DROPBOX_REFRESH_TOKEN=DROPBOX_REFRESH_TOKEN
-)
+def create_tar(input_paths: List[str], output_path: str) -> str:
+    """
+    Creates a compressed tarball (.tar.gz) from the specified input paths and saves it to the output path.
 
-check_required_env_variable(BACKUP_DIRECTORY, GPG_RECIPIENT, DROPBOX_REMOTE_LOCATION,
-                            DROPBOX_CLIENT_ID, DROPBOX_CLIENT_SECRET, DROPBOX_REFRESH_TOKEN)
+    :param input_paths: A list of paths to the directories or files to be included in the tarball.
+    :param output_path: The path to the directory where the tarball will be saved.
+    :return: The full filepath of the created tarball.
+
+    The function creates a new tarfile using the output path and a filename derived from the input path.
+    The filename is obtained by using the last folder name in the input path.
+    It iterates over each input path and adds their contents to the tarfile, preserving the original directory structure.
+    The arcname parameter specifies the name of the top-level directory in the tarfile.
+    Finally, the function returns the full filepath of the created tarball.
+
+    Example usage:
+        input_paths = ["/path/to/files1", "/path/to/files2", "/path/to/files3"]
+        output_path = "/path/to/output"
+        tarball_path = create_tar(input_paths, output_path)
+        # This will create a tarball from the input paths and save it to the output path.
+        # The filename of the tarball will be derived from the last folder name in the input path.
+        # The resulting tarball path will be returned.
+
+    Note: This function requires the 'tarfile' and 'os' modules to be imported.
+    """
+    for input_path in input_paths:
+        output_filepath = os.path.join(output_path, f"{os.path.basename(input_path)}.tar.gz")
+        with tarfile.open(output_filepath, "w:gz") as tar:
+            tar.add(input_path, arcname=os.path.basename(input_path))
+        tar.close()
+    return output_filepath
 
 
-check_directory_exists(BACKUP_DIRECTORY)
+# print(non_empty_directory_paths_list(BACKUP_DIRECTORY))
 
+# log_environment_variables(
+#     LOG_FILE_LOCATION=LOG_FILE_LOCATION,
+#     BACKUP_DIRECTORY=BACKUP_DIRECTORY,
+#     GPG_RECIPIENT=GPG_RECIPIENT,
+#     DROPBOX_REMOTE_LOCATION=DROPBOX_REMOTE_LOCATION,
+#     DROPBOX_CLIENT_ID=DROPBOX_CLIENT_ID,
+#     DROPBOX_CLIENT_SECRET=DROPBOX_CLIENT_SECRET,
+#     DROPBOX_REFRESH_TOKEN=DROPBOX_REFRESH_TOKEN
+# )
 
-# Loop through all files and directories within the parent directory
-for item in os.listdir(BACKUP_DIRECTORY):
-    item_path = os.path.join(BACKUP_DIRECTORY, item)
-    if os.path.isdir(item_path):
-        # Check if the directory is not empty
-        if os.listdir(item_path):
-            # Process the non-empty directory
-            logging.info("Found non-empty directory: %s", item_path)
+# check_required_env_variable(BACKUP_DIRECTORY, GPG_RECIPIENT)
 
-            # Get the name of the directory that is not empty
-            directory_name = os.path.basename(item_path)
-            # Get the current date
-            current_date = date.today().strftime("%Y-%m-%d")
-            # Get output filename
-            output_filename = f"{current_date}_{directory_name}"
+tarfile = create_tar(non_empty_directory_paths_list(BACKUP_DIRECTORY),
+           BACKUP_DIRECTORY,)
 
-#             # Create the tar archive with the same name as the directory
-#             output_file = os.path.join(
-#                 BACKUP_DIRECTORY, f"{output_filename}.tar.gz")
-#             with tarfile.open(output_file, "w:gz") as tar:
-#                 tar.add(item_path, arcname=os.path.basename(item_path))
-#                 tar.close()
+print(tarfile)
+
+# if DROPBOX_UPLOAD:
+#     check_required_env_variable(
+#         DROPBOX_REMOTE_LOCATION, DROPBOX_CLIENT_ID, DROPBOX_CLIENT_SECRET, DROPBOX_REFRESH_TOKEN)
+
 
 #             # Output filename for encrypted file
 #             encrypted_filename = f"{output_file}.gpg"
