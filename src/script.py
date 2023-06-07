@@ -53,7 +53,7 @@ def log_environment_variables(**variables):
     logging.debug(log_message)
 
 
-def check_directory_exists(directory):
+def check_directory_exists(directory: str):
     """
     Checks if directory exists and SystemExit if the backup directory does not exist.
     """
@@ -74,7 +74,7 @@ def check_required_env_variable(*required_variables):
             sys.exit(1)
 
 
-def dropbox_upload(file_path, dropbox_path, access_token):
+def dropbox_upload(file_path: str, dropbox_path: str, access_token: str):
     dbx = dropbox.Dropbox(access_token)
     try:
         with open(file_path, "rb") as file:
@@ -101,22 +101,22 @@ def dropbox_refresh_access_token(refresh_token, client_id, client_secret, redire
         return None
 
 
-def non_empty_directory_path(directory):
+def non_empty_directory_path(path: str) -> str:
     """
     Return a (sub)directory inside the input directory that is not empty.
     """
-    for item in os.listdir(directory):
-        item_path = os.path.join(directory, item)
-        if os.path.isdir(item_path) and os.listdir(item_path):
-            logging.info("Found non-empty directory: %s", item_path)
-            return item_path
+    for item in os.listdir(path):
+        non_empty_subpath = os.path.join(path, item)
+        if os.path.isdir(non_empty_subpath) and os.listdir(non_empty_subpath):
+            logging.info("Found non-empty directory: %s", non_empty_subpath)
+            return non_empty_subpath
 
 
-def directory_name(directory_path):
+def directory_name(path: str) -> str:
     """
-    Return the directory name of the input directory path.
+    Return the last directory name of the input path.
     """
-    directory_name = os.path.basename(directory_path)
+    directory_name = os.path.basename(path)
     return directory_name
 
 
