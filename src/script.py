@@ -10,7 +10,7 @@ import os
 import sys
 import logging
 import tarfile
-from datetime import date
+from datetime import datetime
 import gnupg
 import dropbox
 from typing import List
@@ -200,21 +200,26 @@ def non_empty_directory_paths_list(path: str) -> List[str]:
 
     The function iterates through the items in the specified path using 'os.listdir'.
     For each item, it creates a subpath by joining the item with the parent path using 'os.path.join'.
-    If the subpath is a directory and it contains at least one item, the function adds it to the result list.
+    If the subpath is a directory, contains no files, but has at least one subdirectory, the function adds it to the result list.
     The function returns the list of non-empty directory paths.
 
     Example usage:
         path = "/parent/directory/"
-        non_empty_dirs = non_empty_directory_paths(path)
+        non_empty_dirs = non_empty_directory_paths_list(path)
         # non_empty_dirs may contain ['/parent/directory/non_empty_subdirectory1', '/parent/directory/non_empty_subdirectory2', ...]
 
-    Note: This function requires the 'os' module to be imported.
+    Note: This function requires the 'os' and 'logging' modules to be imported.
     """
     non_empty_dirs = []
     for item in os.listdir(path):
         non_empty_subpath = os.path.join(path, item)
-        if os.path.isdir(non_empty_subpath) and os.listdir(non_empty_subpath):
-            non_empty_dirs.append(non_empty_subpath)
+        if os.path.isdir(non_empty_subpath):
+            subdirs = [subdir for subdir in os.listdir(non_empty_subpath) if os.path.isdir(
+                os.path.join(non_empty_subpath, subdir))]
+            if subdirs:
+                non_empty_dirs.append(non_empty_subpath)
+        else:
+            logging.info("Empty directory, skipping: %s", non_empty_subpath)
     return non_empty_dirs
 
 
@@ -236,37 +241,57 @@ def last_directory_name(path: str) -> str:
     return directory_name
 
 
-def create_tar(input_paths: List[str], output_path: str) -> str:
+def create_tar(input_paths: List[str], output_path: str) -> List[str]:
     """
-    Creates a compressed tarball (.tar.gz) from the specified input paths and saves it to the output path.
+    Creates compressed tarballs (.tar.gz) from the specified input paths and saves them to the output path.
 
-    :param input_paths: A list of paths to the directories or files to be included in the tarball.
-    :param output_path: The path to the directory where the tarball will be saved.
-    :return: The full filepath of the created tarball.
+    :param input_paths: A list of paths to the directories or files to be included in the tarballs.
+    :param output_path: The path to the directory where the tarballs will be saved.
+    :return: A list of the full filepaths of the created tarballs.
 
-    The function creates a new tarfile using the output path and a filename derived from the input path.
+    The function creates a new tarfile for each input path using the output path and a filename derived from the input path,
+    prefixed with the current date in the format "yyyy_mm_dd".
     The filename is obtained by using the last folder name in the input path.
     It iterates over each input path and adds their contents to the tarfile, preserving the original directory structure.
     The arcname parameter specifies the name of the top-level directory in the tarfile.
-    Finally, the function returns the full filepath of the created tarball.
+    Finally, the function returns a list of the full filepaths of the created tarballs.
 
     Example usage:
         input_paths = ["/path/to/files1", "/path/to/files2", "/path/to/files3"]
         output_path = "/path/to/output"
-        tarball_path = create_tar(input_paths, output_path)
-        # This will create a tarball from the input paths and save it to the output path.
-        # The filename of the tarball will be derived from the last folder name in the input path.
-        # The resulting tarball path will be returned.
+        tarball_paths = create_tar(input_paths, output_path)
+        # This will create tarballs from the input paths and save them to the output path.
+        # The filename of each tarball will be derived from the last folder name in the input path,
+        # prefixed with the current date in the format "yyyy_mm_dd".
+        # A list of the full filepaths of the created tarballs will be returned.
 
-    Note: This function requires the 'tarfile' and 'os' modules to be imported.
+    Note: This function requires the 'tarfile', 'os', and 'datetime' modules to be imported.
     """
+    current_date = datetime.now().strftime("%Y_%m_%d")
+    tarball_paths = []
     for input_path in input_paths:
-        output_filepath = os.path.join(output_path, f"{os.path.basename(input_path)}.tar.gz")
+        output_filepath = os.path.join(
+            output_path, f"{current_date}_{os.path.basename(input_path)}.tar.gz")
         with tarfile.open(output_filepath, "w:gz") as tar:
             tar.add(input_path, arcname=os.path.basename(input_path))
         tar.close()
-    return output_filepath
+        tarball_paths.append(output_filepath)
+    return tarball_paths
 
+
+def create_gpg(input_filepaths: List[str]):
+    gpg = gnupg.GPG()
+    for input_filepath in input_filepaths:
+        with open(input_filepath, 'rb') as f:
+            status = gpg.encrypt_file(
+                f, recipients=[GPG_RECIPIENT],
+                always_trust=True,
+                output=f"{input_filepath}.gpg")
+        if status.ok:
+            logging.info("File \"" + input_filepath +
+                         "\" encrypted successfully.")
+        else:
+            logging.error("Error encrypting the file:", status.status)
 
 # print(non_empty_directory_paths_list(BACKUP_DIRECTORY))
 
@@ -282,10 +307,11 @@ def create_tar(input_paths: List[str], output_path: str) -> str:
 
 # check_required_env_variable(BACKUP_DIRECTORY, GPG_RECIPIENT)
 
-tarfile = create_tar(non_empty_directory_paths_list(BACKUP_DIRECTORY),
-           BACKUP_DIRECTORY,)
 
-print(tarfile)
+tarfile = create_tar(non_empty_directory_paths_list(BACKUP_DIRECTORY),
+                     BACKUP_DIRECTORY,)
+
+create_gpg(tarfile)
 
 # if DROPBOX_UPLOAD:
 #     check_required_env_variable(
