@@ -25,7 +25,7 @@ spec:
     fsType: nfs
     volumeHandle: pv-nfs-coen-backups
     volumeAttributes:
-      server: storage-server-lagg.lan
+      server: storage-server-lagg.lan.theautomation.nl
       share: /mnt/r10_8tb/coen/backups-test
       node_attach_driver: nfs
       provisioner_driver: node-manual
@@ -109,7 +109,7 @@ spec:
         fsGroup: 2000
       containers:
         - name: backup-to-cloud
-          image: "harbor.k8s.lan/k8s/backup-to-cloud:29"
+          image: "harbor.lan.theautomation.nl/k8s/backup-to-cloud:29"
           securityContext:
             runAsUser: 1000
             runAsGroup: 2000
